@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PesaEx | Professional Live Trading & Signal Dashboard</title>
+    <meta name="description" content="Real-time multi-asset trading dashboard, live order books, and instant signal link generator." />
+    <!-- Tailwind CSS CDN for styling compatibility -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                burgundy: '#581c87',
+                rose: '#f43f5e',
+                dark: '#0f172a',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #0b0f19;
+        color: #f8fafc;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-[#0b0f19] text-slate-100 antialiased selection:bg-rose-500 selection:text-white">
+    <div id="root"></div>
+
+    <!-- If running as a standalone single-file vanilla script fallback -->
+    <script type="module">
+      // If you are loading React via CDN or Vite, your root handles mount.
+    </script>
+  </body>
+</html>
