@@ -30,7 +30,7 @@
   <body class="min-h-screen bg-[#0b0f19] text-slate-100 antialiased">
     <div id="root"></div>
 
-    <!-- Self-Contained Trading Dashboard App -->
+    <!-- Self-Contained Trading Dashboard App with LocalStorage Persistence -->
     <script type="text/babel">
       function TradingDashboard() {
         const [asset, setAsset] = React.useState('BTC/USD');
@@ -43,14 +43,26 @@
         const [stopLoss, setStopLoss] = React.useState('89000');
         const [notes, setNotes] = React.useState('Breakout confirmation on 4H chart.');
         
-        const [positions, setPositions] = React.useState([
-          { id: 1, asset: 'BTC/USD', type: 'LONG', entry: 90800, size: '0.5 BTC', lev: '10x', pnl: '+$310.25', pnlClass: 'text-emerald-400' },
-          { id: 2, asset: 'ETH/USD', type: 'SHORT', entry: 3420, size: '4.2 ETH', lev: '5x', pnl: '-$42.10', pnlClass: 'text-rose-400' }
-        ]);
+        // Load positions from LocalStorage or use default mock positions
+        const [positions, setPositions] = React.useState(() => {
+          const saved = localStorage.getItem('pesaex_positions');
+          if (saved) {
+            try { return JSON.parse(saved); } catch(e) { }
+          }
+          return [
+            { id: 1, asset: 'BTC/USD', type: 'LONG', entry: 90800, size: '0.5 BTC', lev: '10x', pnl: '+$310.25', pnlClass: 'text-emerald-400' },
+            { id: 2, asset: 'ETH/USD', type: 'SHORT', entry: 3420, size: '4.2 ETH', lev: '5x', pnl: '-$42.10', pnlClass: 'text-rose-400' }
+          ];
+        });
         
         const [modalOpen, setModalOpen] = React.useState(false);
         const [signalLink, setSignalLink] = React.useState('');
         const [copied, setCopied] = React.useState(false);
+
+        // Save positions to LocalStorage whenever they change
+        React.useEffect(() => {
+          localStorage.setItem('pesaex_positions', JSON.stringify(positions));
+        }, [positions]);
 
         // Live price fluctuation simulation
         React.useEffect(() => {
@@ -73,6 +85,13 @@
             pnlClass: 'text-slate-400'
           };
           setPositions([newPos, ...positions]);
+        };
+
+        const clearHistory = () => {
+          if (confirm('Clear all saved positions?')) {
+            setPositions([]);
+            localStorage.removeItem('pesaex_positions');
+          }
         };
 
         const generateSignalLink = () => {
@@ -106,12 +125,12 @@
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-purple-600 flex items-center font-bold text-lg shadow-lg shadow-rose-500/20">P</div>
                 <div>
                   <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-                    PesaEx Terminal <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE</span>
+                    PesaEx Terminal <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE + PERSISTENT</span>
                   </h1>
-                  <p className="text-xs text-slate-400">Institutional Multi-Asset Trading & Signal Network</p>
+                  <p className="text-xs text-slate-400">Institutional Multi-Asset Trading & LocalStorage Persistence</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <button onClick={generateSignalLink} className="bg-gradient-to-r from-rose-600 to-purple-600 hover:from-rose-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg font-medium text-sm shadow-md transition flex items-center gap-2">
                   <span>🔗 Share Live Signal Link</span>
                 </button>
@@ -153,32 +172,41 @@
 
                 {/* Active Positions Table */}
                 <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 shadow-xl">
-                  <h3 className="text-sm font-bold text-slate-300 mb-3 uppercase tracking-wider">Active Open Positions</h3>
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Active Open Positions (Saved Locally)</h3>
+                    {positions.length > 0 && (
+                      <button onClick={clearHistory} className="text-xs text-rose-400 hover:underline">Clear History</button>
+                    )}
+                  </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="text-xs text-slate-400 border-b border-slate-800">
-                        <tr>
-                          <th className="pb-3">Asset</th>
-                          <th className="pb-3">Type</th>
-                          <th className="pb-3">Entry Price</th>
-                          <th className="pb-3">Size</th>
-                          <th className="pb-3">Leverage</th>
-                          <th className="pb-3">Unrealized PnL</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/50">
-                        {positions.map(pos => (
-                          <tr key={pos.id} className="hover:bg-slate-800/30">
-                            <td className="py-3 font-semibold text-white">{pos.asset}</td>
-                            <td className="py-3"><span className={`px-2 py-0.5 rounded text-xs font-bold ${pos.type === 'BUY' || pos.type === 'LONG' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{pos.type}</span></td>
-                            <td className="py-3 text-slate-300">${pos.entry.toLocaleString()}</td>
-                            <td className="py-3 text-slate-300">{pos.size}</td>
-                            <td className="py-3 text-slate-300">{pos.lev}</td>
-                            <td className={`py-3 font-bold ${pos.pnlClass}`}>{pos.pnl}</td>
+                    {positions.length === 0 ? (
+                      <p className="text-xs text-slate-500 py-4 text-center">No active positions saved. Execute a trade to save it!</p>
+                    ) : (
+                      <table className="w-full text-left text-sm">
+                        <thead className="text-xs text-slate-400 border-b border-slate-800">
+                          <tr>
+                            <th className="pb-3">Asset</th>
+                            <th className="pb-3">Type</th>
+                            <th className="pb-3">Entry Price</th>
+                            <th className="pb-3">Size</th>
+                            <th className="pb-3">Leverage</th>
+                            <th className="pb-3">Unrealized PnL</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                          {positions.map(pos => (
+                            <tr key={pos.id} className="hover:bg-slate-800/30">
+                              <td className="py-3 font-semibold text-white">{pos.asset}</td>
+                              <td className="py-3"><span className={`px-2 py-0.5 rounded text-xs font-bold ${pos.type === 'BUY' || pos.type === 'LONG' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{pos.type}</span></td>
+                              <td className="py-3 text-slate-300">${Number(pos.entry).toLocaleString()}</td>
+                              <td className="py-3 text-slate-300">{pos.size}</td>
+                              <td className="py-3 text-slate-300">{pos.lev}</td>
+                              <td className={`py-3 font-bold ${pos.pnlClass}`}>{pos.pnl}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 </div>
               </div>
