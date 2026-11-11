@@ -30,20 +30,27 @@
   <body class="min-h-screen bg-[#0b0f19] text-slate-100 antialiased">
     <div id="root"></div>
 
-    <!-- Self-Contained Trading Dashboard App with LocalStorage Persistence -->
+    <!-- Self-Contained Trading Dashboard App with Moving Chart & Persistence -->
     <script type="text/babel">
       function TradingDashboard() {
         const [asset, setAsset] = React.useState('BTC/USD');
         const [price, setPrice] = React.useState(91420.50);
+        const [priceChange, setPriceChange] = React.useState('+3.42%');
+        const [timeframe, setTimeframe] = React.useState('1H');
+        
+        // Live moving price history array for the chart
+        const [chartData, setChartData] = React.useState([
+          89500, 90100, 89800, 90400, 90900, 90600, 91200, 91000, 91500, 91420
+        ]);
+
         const [orderType, setOrderType] = React.useState('market');
         const [side, setSide] = React.useState('buy');
         const [amount, setAmount] = React.useState('0.25');
         const [leverage, setLeverage] = React.useState('10');
         const [takeProfit, setTakeProfit] = React.useState('95000');
         const [stopLoss, setStopLoss] = React.useState('89000');
-        const [notes, setNotes] = React.useState('Breakout confirmation on 4H chart.');
         
-        // Load positions from LocalStorage or use default mock positions
+        // Load positions from LocalStorage
         const [positions, setPositions] = React.useState(() => {
           const saved = localStorage.getItem('pesaex_positions');
           if (saved) {
@@ -59,16 +66,28 @@
         const [signalLink, setSignalLink] = React.useState('');
         const [copied, setCopied] = React.useState(false);
 
-        // Save positions to LocalStorage whenever they change
+        // Save positions to LocalStorage
         React.useEffect(() => {
           localStorage.setItem('pesaex_positions', JSON.stringify(positions));
         }, [positions]);
 
-        // Live price fluctuation simulation
+        // Live price fluctuation & moving chart updater
         React.useEffect(() => {
           const interval = setInterval(() => {
-            setPrice(prev => Number((prev + (Math.random() * 40 - 19.8)).toFixed(2)));
-          }, 1200);
+            setPrice(prev => {
+              const delta = Number((Math.random() * 60 - 29.5).toFixed(2));
+              const newPrice = Number((prev + delta).toFixed(2));
+              
+              // Update moving chart data array (keep last 20 data points)
+              setChartData(current => {
+                const updated = [...current, newPrice];
+                if (updated.length > 20) updated.shift();
+                return updated;
+              });
+
+              return newPrice;
+            });
+          }, 1000);
           return () => clearInterval(interval);
         }, []);
 
@@ -117,6 +136,19 @@
           }
         };
 
+        // Calculate SVG points for the moving chart line
+        const minP = Math.min(...chartData);
+        const maxP = Math.max(...chartData);
+        const rangeP = maxP - minP || 1;
+        const chartHeight = 220;
+        const chartWidth = 600;
+
+        const points = chartData.map((val, idx) => {
+          const x = (idx / (chartData.length - 1)) * chartWidth;
+          const y = chartHeight - ((val - minP) / rangeP) * (chartHeight - 40) - 20;
+          return `${x},${y}`;
+        }).join(' ');
+
         return (
           <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col font-sans">
             {/* Header */}
@@ -125,9 +157,9 @@
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-purple-600 flex items-center font-bold text-lg shadow-lg shadow-rose-500/20">P</div>
                 <div>
                   <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-                    PesaEx Terminal <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE + PERSISTENT</span>
+                    PesaEx Terminal <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LIVE MOVING GRAPH</span>
                   </h1>
-                  <p className="text-xs text-slate-400">Institutional Multi-Asset Trading & LocalStorage Persistence</p>
+                  <p className="text-xs text-slate-400">Institutional Multi-Asset Trading & Real-Time Price Streaming</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -139,7 +171,7 @@
 
             {/* Main Grid */}
             <main className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto w-full">
-              {/* Left & Center: Chart & Order Book */}
+              {/* Left & Center: Moving Chart & Order Book */}
               <div className="lg:col-span-2 space-y-6">
                 <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 shadow-xl">
                   <div className="flex justify-between items-center mb-4">
@@ -151,22 +183,27 @@
                         <option value="EUR/USD">EUR/USD</option>
                       </select>
                       <span className="text-2xl font-black tracking-tight text-white">${price.toLocaleString()}</span>
-                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">+3.42%</span>
+                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">{priceChange}</span>
                     </div>
                     <div className="flex gap-1 bg-slate-800/60 p-1 rounded-lg text-xs">
                       {['1H', '4H', '1D', '1W'].map(tf => (
-                        <button key={tf} className="px-3 py-1 rounded font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition">{tf}</button>
+                        <button key={tf} onClick={() => setTimeframe(tf)} className={`px-3 py-1 rounded font-medium transition ${timeframe === tf ? 'bg-rose-600 text-white shadow' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}>{tf}</button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Simulated Candle Visualizer */}
-                  <div className="h-64 bg-slate-950/60 rounded-xl border border-slate-800/60 p-4 flex items-end justify-between gap-1 overflow-hidden">
-                    {[45, 52, 48, 60, 58, 65, 70, 68, 75, 82, 78, 85, 90, 88, 95, 102, 98, 105, 110, 108, 115, 120].map((h, i) => (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-                        <div className={`w-full rounded-sm transition-all duration-500 ${i % 2 === 0 ? 'bg-emerald-500/80 group-hover:bg-emerald-400' : 'bg-rose-500/80 group-hover:bg-rose-400'}`} style={{ height: `${h}px` }}></div>
-                      </div>
-                    ))}
+                  {/* Real-time SVG Moving Chart */}
+                  <div className="h-64 bg-slate-950/80 rounded-xl border border-slate-800/60 p-4 relative overflow-hidden flex flex-col justify-end">
+                    <div className="absolute top-3 left-4 text-xs font-mono text-slate-500">LIVE FEED • {asset} ({timeframe})</div>
+                    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-48 overflow-visible">
+                      <defs>
+                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.4" />
+                          <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+                      <polyline fill="none" stroke="#f43f5e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={points} />
+                    </svg>
                   </div>
                 </div>
 
