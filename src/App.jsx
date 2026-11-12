@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import PriceChart from './components/PriceChart';
-import OrderForm from './components/OrderForm';
 import PositionsTable from './components/PositionsTable';
+import Sidebar from './components/Sidebar';
 import { supabase } from './services/supabase';
 
 export default function App() {
@@ -32,10 +32,8 @@ export default function App() {
   }, []);
 
   const handleExecuteTrade = async (newPos) => {
-    // Optimistically update UI
     setPositions([newPos, ...positions]);
 
-    // Save to Supabase table
     const { error } = await supabase.from('positions').insert([
       {
         asset: newPos.asset,
@@ -56,7 +54,7 @@ export default function App() {
   const clearHistory = async () => {
     if (confirm('Clear all cloud-saved positions?')) {
       setPositions([]);
-      await supabase.from('positions').delete().neq('id', 0); // Clears table rows
+      await supabase.from('positions').delete().neq('id', 0);
     }
   };
 
@@ -91,7 +89,11 @@ export default function App() {
           <PositionsTable positions={positions} onClearHistory={clearHistory} />
         </div>
 
-        <OrderForm asset={asset} price={price} onExecuteTrade={handleExecuteTrade} />
+        <Sidebar 
+          asset={asset} 
+          price={price} 
+          onExecuteTrade={handleExecuteTrade} 
+        />
       </main>
 
       {modalOpen && (
