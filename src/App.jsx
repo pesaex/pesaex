@@ -11,33 +11,52 @@ export default function App() {
   const [priceChange, setPriceChange] = useState('+3.42%');
   const [timeframe, setTimeframe] = useState('1H');
 
-  const [positions, setPositions] = useState(() => {
-    const saved = localStorage.getItem('pesaex_positions');
-    if (saved) {
-      try { return JSON.parse(saved); } catch(e) {}
-    }
-    return [
-      { id: 1, asset: 'BTC/USD', type: 'LONG', entry: 90800, size: '0.5 BTC', lev: '10x', pnl: '+$310.25', pnlClass: 'text-emerald-400' },
-      { id: 2, asset: 'ETH/USD', type: 'SHORT', entry: 3420, size: '4.2 ETH', lev: '5x', pnl: '-$42.10', pnlClass: 'text-rose-400' }
-    ];
-  });
+  const [positions, setPositions] = useState([
+    { id: 1, asset: 'BTC/USD', type: 'LONG', entry: 90800, size: '0.5 BTC', lev: '10x', pnl: '+$310.25', pnlClass: 'text-emerald-400' },
+    { id: 2, asset: 'ETH/USD', type: 'SHORT', entry: 3420, size: '4.2 ETH', lev: '5x', pnl: '-$42.10', pnlClass: 'text-rose-400' }
+  ]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [signalLink, setSignalLink] = useState('');
   const [copied, setCopied] = useState(false);
 
+  // Fetch positions from Supabase on load
   useEffect(() => {
-    localStorage.setItem('pesaex_positions', JSON.stringify(positions));
-  }, [positions]);
+    async function fetchPositions() {
+      const { data, error } = await supabase.from('positions').select('*').order('created_at', { ascending: false });
+      if (data && data.length > 0) {
+        setPositions(data);
+      }
+    }
+    fetchPositions();
+  }, []);
 
-  const handleExecuteTrade = (newPos) => {
+  const handleExecuteTrade = async (newPos) => {
+    // Optimistically update UI
     setPositions([newPos, ...positions]);
+
+    // Save to Supabase table
+    const { error } = await supabase.from('positions').insert([
+      {
+        asset: newPos.asset,
+        type: newPos.type,
+        entry: newPos.entry,
+        size: newPos.size,
+        lev: newPos.lev,
+        pnl: newPos.pnl,
+        pnl_class: newPos.pnlClass
+      }
+    ]);
+
+    if (error) {
+      console.error('Error saving position to Supabase:', error.message);
+    }
   };
 
-  const clearHistory = () => {
-    if (confirm('Clear all saved positions?')) {
+  const clearHistory = async () => {
+    if (confirm('Clear all cloud-saved positions?')) {
       setPositions([]);
-      localStorage.removeItem('pesaex_positions');
+      await supabase.from('positions').delete().neq('id', 0); // Clears table rows
     }
   };
 
